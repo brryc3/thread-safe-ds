@@ -25,74 +25,76 @@
 \section{Introduction}
 This report documents the implementations and analyses for the thread-safe data structures lab assignment, covering thread-safe queue and stack implementations, Producer-Consumer and Undo-Redo use cases, and additional exercises.
 
-\section{Exercise 1: Thread-Safe Queue and Stack}
-\lstinputlisting[language=C++]{thread_safe_data_structures.cpp}
+% ...existing code...
+\begin{document}
+\maketitle
 
-\textbf{Explanation}: Describe how mutexes ensure thread safety in ThreadSafeQueue and ThreadSafeStack. Explain the Producer-Consumer and Undo-Redo implementations.
+\begin{abstract}
+This report summarizes the implementations and tests for several thread-safe data structures: a mutex-protected queue and stack (exercise 1), a priority queue (exercise 2), a fixed-size circular buffer (exercise 4), a double-ended queue (exercise 5), and a thread-safe singly linked list (exercise 6). Each section provides a concise explanation of the design and a short analysis of correctness, performance, and trade-offs.
+\end{abstract}
 
-\textbf{Analysis}: Discuss thread synchronization behavior and consumer termination logic.
+\section{Build and Run}
+All examples were compiled with C++17 and linked with pthreads. Example commands used during testing:
 
-\textbf{Screenshot}: Include a screenshot of compiling and running thread_safe_data_structures.cpp.
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=\textwidth]{1_screenshot.png}
-    \caption{Compilation and execution of thread_safe_data_structures.cpp}
-\end{figure}
+\begin{lstlisting}[basicstyle=\ttfamily,breaklines=true]
+# from workspace root
+g++ -std=c++17 -pthread thread-safe-data-structures.cpp -o thread_safe
+./thread_safe
 
-\section{Exercise 3: Thread-Safe Priority Queue}
-\lstinputlisting[language=C++]{priority_queue.cpp}
+g++ -std=c++17 -pthread priority_queue.cpp -o priority_queue
+./priority_queue
 
-\textbf{Explanation}: Describe how the priority queue maintains order and ensures thread safety.
+g++ -std=c++17 -pthread circular_buffer.cpp -o circular_buffer
+./circular_buffer
 
-\textbf{Analysis}: Analyze the behavior of concurrent pushes and pops.
+g++ -std=c++17 -pthread thread_safe_deque.cpp -o thread_safe_deque
+./thread_safe_deque
 
-\textbf{Screenshot}: Include a screenshot of compiling and running priority_queue.cpp.
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=\textwidth]{2_screenshot.png}
-    \caption{Compilation and execution of priority_queue.cpp}
-\end{figure}
+g++ -std=c++17 -pthread thread_safe_linked_list.cpp -o thread_safe_linked_list
+./thread_safe_linked_list
+\end{lstlisting}
+
+To include screenshots, place image files in an \texttt{images/} directory (PNG/JPG/PDF) and use \verb|\includegraphics| where indicated. If a screenshot file is missing, LaTeX will report a "File not found" error.
+
+\section{Exercise 1: Thread-Safe Queue (producer/consumer)}
+\textbf{Explanation.} The queue uses a single \texttt{std::mutex} and wraps each public method (push, pop, empty, size) with \texttt{std::lock\_guard<std::mutex>}. This RAII pattern acquires the lock on entry and releases it on scope exit, ensuring only one thread manipulates the internal queue at a time. Producers increment an atomic counter when they push messages. Consumers poll the queue and check the counter to detect when producers are done so they can exit.
+
+\textbf{Analysis.}
+- Correctness: A single mutex prevents concurrent modifications and data races on the queue and its size.  
+- Liveness: Consumers check an atomic counter to determine termination; this is simple but has small race windows if producers update the counter after a check.  
+- Performance: Locking serializes operations; polling consumers waste CPU. Use \texttt{std::condition\_variable} to block consumers for better efficiency.
+
+\section{Exercise 2: Thread-Safe Priority Queue}
+\textbf{Explanation.} The wrapper uses \texttt{std::priority\_queue} (heap) as the underlying container. All public methods lock a mutex with \texttt{std::lock\_guard} to preserve heap invariants across concurrent operations.
+
+\textbf{Analysis.}
+- Correctness: Mutex locking prevents simultaneous heap mutations that would corrupt the structure.  
+- Performance: push/pop remain O(log n); the mutex adds overhead and serializes access. For very high concurrency, consider sharded structures or specialized concurrent priority queues.
 
 \section{Exercise 4: Thread-Safe Circular Buffer}
-\lstinputlisting[language=C++]{circular_buffer.cpp}
+\textbf{Explanation.} The circular buffer uses a fixed-size array, head/tail indices and a count. Two \texttt{std::condition\_variable}s coordinate producers and consumers: \texttt{not\_full} makes producers wait when full; \texttt{not\_empty} makes consumers wait when empty. A \texttt{close()} method wakes waiting threads for clean shutdown.
 
-\textbf{Explanation}: Explain the use of condition variables for synchronization.
-
-\textbf{Analysis}: Compare to ThreadSafeQueue from Exercise 1.
-
-\textbf{Screenshot}: Include a screenshot of compiling and running circular_buffer.cpp.
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=\textwidth]{3_screenshot.png}
-    \caption{Compilation and execution of circular_buffer.cpp}
-\end{figure}
+\textbf{Analysis and comparison to Exercise 1.}
+- Bounded vs unbounded: The circular buffer enforces a fixed capacity and provides backpressure; the ThreadSafeQueue from Exercise 1 is dynamic and can grow.  
+- Efficiency: Condition variables let threads block without busy-waiting; preallocated storage reduces allocations and latency.  
+- Trade-offs: Fixed capacity may cause producers to block; shutdown must be handled carefully to avoid stranded threads. Use circular buffers for bounded, low-latency pipelines and dynamic queues when unbounded buffering is acceptable.
 
 \section{Exercise 5: Thread-Safe Deque}
-\lstinputlisting[language=C++]{thread_safe_deque.cpp}
+\textbf{Explanation.} \texttt{std::deque} is wrapped and protected by a single \texttt{std::mutex}. Implemented operations include \texttt{push\_front}, \texttt{push\_back}, \texttt{pop\_front}, \texttt{pop\_back}, \texttt{empty} and \texttt{size}.
 
-\textbf{Explanation}: Describe the challenges of synchronizing access to both ends.
+\textbf{Analysis.}
+- Correctness: A single mutex guarantees container integrity during concurrent updates.  
+- Contention: Operations on opposite ends are serialized even if they could be independent; this limits parallelism under heavy load.  
+- Alternatives: Separate locks for each end can increase concurrency but risk deadlocks and complicate global queries (size/empty). Lock-free deques are complex and demand robust memory-reclamation.
 
-\textbf{Analysis}: Analyze concurrent operations on the deque.
+\section{Exercise 6: Thread-Safe Singly Linked List}
+\textbf{Explanation.} \texttt{push\_front} and \texttt{pop\_front} are implemented with a single mutex protecting the head pointer and node links. Node allocation and deletion occur while holding the lock to avoid concurrent access to freed memory.
 
-\textbf{Screenshot}: Include a screenshot of compiling and running thread_safe_deque.cpp.
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=\textwidth]{4_screenshot.png}
-    \caption{Compilation and execution of thread_safe_deque.cpp}
-\end{figure}
+\textbf{Analysis.}
+- Integrity: Coarse-grained locking ensures the list remains consistent and avoids use-after-free when nodes are removed.  
+- Scalability: The single mutex is simple but can bottleneck throughput. Lock-free approaches improve concurrency but require safe reclamation (hazard pointers, epoch-based GC) and careful handling of the ABA problem.
 
-\section{Exercise 6: Thread-Safe Linked List}
-\lstinputlisting[language=C++]{thread_safe_linked_list.cpp}
-
-\textbf{Explanation}: Discuss maintaining list integrity during concurrent operations.
-
-\textbf{Analysis}: Analyze thread safety and performance considerations.
-
-\textbf{Screenshot}: Include a screenshot of compiling and running thread_safe_linked_list.cpp.
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=\textwidth]{5_screenshot.png}
-    \caption{Compilation and execution of thread_safe_linked_list.cpp}
-\end{figure}
+\section{Conclusion}
+\texttt{std::mutex} with \texttt{std::lock\_guard} provides simple and correct synchronization. Add \texttt{std::condition\_variable} for efficient blocking in producer/consumer scenarios. Choose the circular buffer for bounded, low-latency use cases and dynamic queues for simplicity when unbounded buffering is acceptable. Consider finer-grained locking or lock-free designs only after addressing complexity around memory reclamation and correctness.
 
 \end{document}
