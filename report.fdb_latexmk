@@ -1,0 +1,13 @@
+# Fdb version 4
+["pdflatex"] 1761103219.47798 "report.tex" "report.pdf" "report" 1761103231.72018 2
+  "/etc/texmf/web2c/texmf.cnf" 1761102493.20188 475 c0e671620eb5563b2130f56340a5fde8 ""
+  "/usr/share/texlive/texmf-dist/web2c/texmf.cnf" 1707919699 40399 f2c302f7d2af602abb742093540a5834 ""
+  "/usr/share/texmf/web2c/texmf.cnf" 1707919699 40399 f2c302f7d2af602abb742093540a5834 ""
+  "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1761102664 8214201 5943168300c95db8235024156f57e8b0 ""
+  "report.aux" 1761102940.5379 32 3985256e7290058c681f74d7a3565a19 "pdflatex"
+  "report.tex" 1761102620.91989 3486 af3bb6826472e0b7de12f04f6761c1eb ""
+  (generated)
+  "report.aux"
+  "report.log"
+  "report.pdf"
+  (rewritten before read)
